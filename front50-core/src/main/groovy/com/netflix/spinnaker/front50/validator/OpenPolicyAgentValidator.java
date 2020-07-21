@@ -96,7 +96,6 @@ public class OpenPolicyAgentValidator implements PipelineValidator {
 
       /* fetch the response from the spawned call execution */
       httpResponse = doPost(opaFinalUrl, requestBody);
-      ;
       opaStringResponse = httpResponse.body().string();
       log.info("OPA response: {}", opaStringResponse);
       if (isOpaProxy) {
