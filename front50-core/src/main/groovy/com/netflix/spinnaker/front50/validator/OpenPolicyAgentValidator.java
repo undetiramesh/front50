@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.front50.validator;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -28,7 +27,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
 import okhttp3.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,20 +87,16 @@ public class OpenPolicyAgentValidator implements PipelineValidator {
       // Form input to opa
       finalInput = getOpaInput(pipeline, deltaVerification);
 
-      /* this is the input we expect from front50 when the validator is called */
-//      inputJson = "{\"input\": { \"pipeline\": " + objectMapper.writeValueAsString(pipeline) + "}}";
+      log.debug("Verifying {} with OPA", finalInput);
 
-
-    log.debug("Verifying {} with OPA", finalInput);
-
-
-    /* build our request to OPA */
-    RequestBody requestBody = RequestBody.create(JSON, finalInput);
-    String opaFinalUrl = String.format("%s/%s", this.opaUrl, this.opaPolicyLocation);
-    String opaStringResponse;
+      /* build our request to OPA */
+      RequestBody requestBody = RequestBody.create(JSON, finalInput);
+      String opaFinalUrl = String.format("%s/%s", this.opaUrl, this.opaPolicyLocation);
+      String opaStringResponse;
 
       /* fetch the response from the spawned call execution */
-      httpResponse = doPost(opaFinalUrl,requestBody);;
+      httpResponse = doPost(opaFinalUrl, requestBody);
+      ;
       opaStringResponse = httpResponse.body().string();
       log.info("OPA response: {}", opaStringResponse);
       if (isOpaProxy) {
@@ -139,32 +133,32 @@ public class OpenPolicyAgentValidator implements PipelineValidator {
     String finalInput = null;
     boolean initialSave = false;
     JsonObject newPipeline = pipelineToJsonObject(pipeline);
-    if(newPipeline.has("application")){
+    if (newPipeline.has("application")) {
       application = newPipeline.get("application").getAsString();
       pipelineName = newPipeline.get("name").getAsString();
       log.debug("## input : {}", gson.toJson(newPipeline));
-      if(newPipeline.has("stages")){
+      if (newPipeline.has("stages")) {
         initialSave = newPipeline.get("stages").getAsJsonArray().size() == 0;
       }
       log.debug("## application : {}, pipelineName : {}", application, pipelineName);
       // if deltaVerification is true, add both current and new pipelines in single json
-      if(deltaVerification && !initialSave) {
+      if (deltaVerification && !initialSave) {
         List<Pipeline> pipelines =
-          new ArrayList<>(pipelineDAO.getPipelinesByApplication(application, true));
+            new ArrayList<>(pipelineDAO.getPipelinesByApplication(application, true));
         log.debug("## pipeline list count : {}", pipelines.size());
-        Optional<Pipeline> currentPipeline = pipelines
-          .stream()
-          .filter(p -> ((String) p.get("name")).equalsIgnoreCase(pipelineName))
-          .findFirst();
+        Optional<Pipeline> currentPipeline =
+            pipelines.stream()
+                .filter(p -> ((String) p.get("name")).equalsIgnoreCase(pipelineName))
+                .findFirst();
         if (currentPipeline.isPresent()) {
           finalInput = getFinalOpaInput(newPipeline, pipelineToJsonObject(currentPipeline.get()));
         } else {
           throw new ValidationException("There is no pipeline with name " + pipelineName, null);
         }
-      }else{
-        finalInput = gson.toJson(addWrapper(addWrapper(newPipeline,"new"), "input"));
+      } else {
+        finalInput = gson.toJson(addWrapper(addWrapper(newPipeline, "new"), "input"));
       }
-    }else{
+    } else {
       throw new ValidationException("The received pipeline doesn't have application field", null);
     }
     return finalInput;
@@ -173,34 +167,28 @@ public class OpenPolicyAgentValidator implements PipelineValidator {
   private String getFinalOpaInput(JsonObject newPipeline, JsonObject currentPipeline) {
     JsonObject input = new JsonObject();
     input.add("new", newPipeline);
-    input.add("current",currentPipeline);
+    input.add("current", currentPipeline);
     return gson.toJson(addWrapper(input, "input"));
   }
 
-  private JsonObject addWrapper(JsonObject pipeline, String wrapper){
+  private JsonObject addWrapper(JsonObject pipeline, String wrapper) {
     JsonObject input = new JsonObject();
     input.add(wrapper, pipeline);
     return input;
   }
-  private JsonObject pipelineToJsonObject(Pipeline pipeline){
+
+  private JsonObject pipelineToJsonObject(Pipeline pipeline) {
     String pipelineStr = gson.toJson(pipeline, Pipeline.class);
-    return gson.fromJson(pipelineStr,JsonObject.class);
+    return gson.fromJson(pipelineStr, JsonObject.class);
   }
 
   private Response doGet(String url) throws IOException {
-    Request req =
-      (new Request.Builder())
-        .url(url)
-        .get()
-        .build();
+    Request req = (new Request.Builder()).url(url).get().build();
     return getResponse(url, req);
   }
+
   private Response doPost(String url, RequestBody requestBody) throws IOException {
-    Request req =
-      (new Request.Builder())
-        .url(url)
-        .post(requestBody)
-        .build();
+    Request req = (new Request.Builder()).url(url).post(requestBody).build();
     return getResponse(url, req);
   }
 
